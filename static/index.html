@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FancyQR Generator</title>
+    <style>
+        :root {
+            --primary: #ff9232;
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --text: #2d3436;
+            --border: #dfe6e9;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 800px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 600px) {
+            .card {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #636e72;
+        }
+
+        input, select {
+            padding: 0.8rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .preview-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #f0f2f5;
+            border-radius: 1rem;
+            padding: 1rem;
+            min-height: 300px;
+            border: 2px dashed var(--border);
+        }
+
+        #qr-preview {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+        }
+
+        .actions {
+            margin-top: 1rem;
+            display: flex;
+            gap: 1rem;
+            width: 100%;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 0.8rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            text-align: center;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: #636e72;
+            color: white;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        h1 {
+            grid-column: 1 / -1;
+            margin: 0 0 1rem 0;
+            font-size: 1.5rem;
+            text-align: center;
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>✨ FancyQR Generator</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="data">Text or URL</label>
+                <input type="text" id="data" placeholder="Enter text here..." value="Hello World">
+            </div>
+
+            <div class="control-group">
+                <label for="front-color">Foreground Color</label>
+                <input type="color" id="front-color" value="#ff9232">
+            </div>
+
+            <div class="control-group">
+                <label for="back-color">Background Color (Hex)</label>
+                <input type="text" id="back-color" value="#ffffff00" placeholder="#RRGGBBAA">
+            </div>
+
+            <div class="control-group">
+                <label for="error-correction">Error Correction</label>
+                <select id="error-correction">
+                    <option value="L">Low (7%)</option>
+                    <option value="M">Medium (15%)</option>
+                    <option value="Q">Quartile (25%)</option>
+                    <option value="H">High (30%)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="preview-side">
+            <div class="preview-container" id="container">
+                <img id="qr-preview" src="" alt="QR Preview">
+            </div>
+            
+            <div class="actions">
+                <button class="btn btn-primary" id="download-btn">Download SVG</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dataInput = document.getElementById('data');
+        const frontColorInput = document.getElementById('front-color');
+        const backColorInput = document.getElementById('back-color');
+        const ecInput = document.getElementById('error-correction');
+        const previewImg = document.getElementById('qr-preview');
+        const downloadBtn = document.getElementById('download-btn');
+
+        let debounceTimer;
+
+        function updateQR() {
+            const data = encodeURIComponent(dataInput.value || " ");
+            const fc = encodeURIComponent(frontColorInput.value);
+            const bc = encodeURIComponent(backColorInput.value);
+            const ec = ecInput.value;
+            
+            const url = `/generate?data=${data}&fc=${fc}&bc=${bc}&ec=${ec}&size=100`;
+            previewImg.src = url;
+        }
+
+        function debouncedUpdate() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(updateQR, 300);
+        }
+
+        [dataInput, frontColorInput, backColorInput, ecInput].forEach(el => {
+            el.addEventListener('input', debouncedUpdate);
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.href = previewImg.src;
+            link.download = 'fancy_qr.svg';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        // Initial load
+        updateQR();
+    </script>
+</body>
+</html>
