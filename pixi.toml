@@ -1,0 +1,15 @@
+[workspace]
+authors = ["Valentin Boettcher <hiro@protagon.space>"]
+channels = ["conda-forge"]
+name = "fancyqr"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+qrcode = ">=8.2,<9"
+pillow = ">=12.2.0,<13"
+zbar = ">=0.23.93,<0.24"
+opencv = ">=4.13.0,<5"
+librsvg = ">=2.62.2,<3"
