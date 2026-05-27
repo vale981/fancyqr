@@ -1,4 +1,7 @@
+import argparse
+import os
 import abc
+import re
 from typing import TYPE_CHECKING, Any, Union, Optional
 from decimal import Decimal
 
@@ -12,6 +15,38 @@ from qrcode.main import QRCode
 if TYPE_CHECKING:
     from qrcode.image.base import BaseImage
     from qrcode.main import ActiveWithNeighbors, QRCode
+
+# Ensure SVG namespace is the default
+ET.register_namespace("", "http://www.w3.org/2000/svg")
+
+
+def parse_color(color_str: str) -> tuple[int, int, int, int]:
+    """Parse a hex color string or a comma-separated RGBA string."""
+    color_str = color_str.strip()
+    if color_str.startswith("#"):
+        color_str = color_str.lstrip("#")
+        if len(color_str) == 6:
+            r, g, b = (
+                int(color_str[0:2], 16),
+                int(color_str[2:4], 16),
+                int(color_str[4:6], 16),
+            )
+            return (r, g, b, 255)
+        elif len(color_str) == 8:
+            r, g, b, a = (
+                int(color_str[0:2], 16),
+                int(color_str[2:4], 16),
+                int(color_str[4:6], 16),
+                int(color_str[6:8], 16),
+            )
+            return (r, g, b, a)
+    elif "," in color_str:
+        parts = [int(p.strip()) for p in color_str.split(",")]
+        if len(parts) == 3:
+            return (parts[0], parts[1], parts[2], 255)
+        elif len(parts) == 4:
+            return (parts[0], parts[1], parts[2], parts[3])
+    raise ValueError(f"Invalid color format: {color_str}")
 
 
 def color_to_svg(color):
@@ -123,7 +158,9 @@ class SvgCustomEyeDrawer(BaseSvgEyeDrawer):
 
         # radius follows the original logic: 2 modules for eye, 1 module for eyeball
         u_box_size = self.img.units(self.img.box_size, text=False)
-        radius = u_box_size if fill else u_box_size * 2
+        radius = u_box_size * 2
+        if fill:
+            radius = u_box_size
 
         if not fill:
             # Inset the path so the stroke is drawn entirely within the bounds
@@ -146,7 +183,7 @@ class SvgCustomEyeDrawer(BaseSvgEyeDrawer):
             attribs["stroke"] = front_color
             attribs["stroke-width"] = str(u_box_size)
 
-        el = ET.Element(ET.QName(self.img._SVG_namespace, "path"), **attribs)
+        el = ET.Element("{http://www.w3.org/2000/svg}path", **attribs)
         self.img._img.append(el)
 
     def draw_nw_eye(self, r, c):
@@ -199,6 +236,14 @@ class SvgHorizontalBarsDrawer(QRModuleDrawer):
         left_rounded = not is_active.W
         right_rounded = not is_active.E
 
+        # Add tiny overlap to prevent aliasing gaps between adjacent horizontal modules
+        overlap = Decimal("0.1")
+        if not left_rounded:
+            ux0 -= overlap
+            w += overlap
+        if not right_rounded:
+            w += overlap
+
         r = shrunken_h / 2
 
         path_data = make_rounded_rect_path(
@@ -213,7 +258,7 @@ class SvgHorizontalBarsDrawer(QRModuleDrawer):
         front_color = color_to_svg(getattr(self.img, "front_color", "black"))
 
         el = ET.Element(
-            ET.QName(self.img._SVG_namespace, "path"), d=path_data, fill=front_color
+            "{http://www.w3.org/2000/svg}path", d=path_data, fill=front_color
         )
         self.img._img.append(el)
 
@@ -224,9 +269,6 @@ class StyledSvgImage(qrcode.image.svg.SvgImage):
     needs_processing = True
 
     def __init__(self, *args, **kwargs):
-        # Register namespace to ensure 'svg:' prefix is not used in output
-        ET.register_namespace("", self._SVG_namespace)
-
         color_mask = kwargs.pop("color_mask", None)
         if color_mask:
             self.front_color = getattr(color_mask, "front_color", "black")
@@ -242,9 +284,12 @@ class StyledSvgImage(qrcode.image.svg.SvgImage):
         if self.module_drawer:
             self.module_drawer.initialize(self)
 
-    def _svg(self, tag=None, version="1.1", **kwargs):
-        # We need to map our raw path coordinates to the mm-based dimensions using a viewBox
-        svg = super()._svg(tag=tag, version=version, **kwargs)
+    def _svg(self, tag="svg", **kwargs):
+        # Override to ensure we use the namespaced tag and add viewBox
+        if tag == "svg":
+            tag = "{http://www.w3.org/2000/svg}svg"
+            
+        svg = super()._svg(tag=tag, **kwargs)
         viewbox_size = self.units(self.pixel_size, text=False)
         svg.set("viewBox", f"0 0 {viewbox_size} {viewbox_size}")
         return svg
@@ -270,20 +315,72 @@ class StyledSvgImage(qrcode.image.svg.SvgImage):
             self.eye_drawer.draw()
 
 
-# Main execution
-qr = QRCode(error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=100)
-qr.add_data("test")
+def main():
+    parser = argparse.ArgumentParser(description="Batch generate styled SVG QR codes.")
+    parser.add_argument("data", nargs="+", help="Data strings to encode into QR codes.")
+    parser.add_argument(
+        "-o", "--output-dir", default=".", help="Output directory for SVG files."
+    )
+    parser.add_argument(
+        "-f",
+        "--front-color",
+        default="255,146,50,255",
+        help="Foreground color (hex or R,G,B,A).",
+    )
+    parser.add_argument(
+        "-b",
+        "--back-color",
+        default="255,255,255,0",
+        help="Background color (hex or R,G,B,A).",
+    )
+    parser.add_argument(
+        "-s", "--box-size", type=int, default=100, help="Box size for the QR code."
+    )
+    parser.add_argument(
+        "-e",
+        "--error-correction",
+        choices=["L", "M", "Q", "H"],
+        default="L",
+        help="Error correction level.",
+    )
 
-img_1 = qr.make_image(
-    image_factory=StyledSvgImage,
-    module_drawer=SvgHorizontalBarsDrawer(),
-    eye_drawer=SvgCustomEyeDrawer(),
-    color_mask=SolidFillColorMask(
-        front_color=(255, 146, 50, 255), back_color=(255, 255, 255, 0)
-    ),
-)
+    args = parser.parse_args()
 
-with open("image.svg", "wb") as f:
-    img_1.save(f)
+    # Map error correction strings to constants
+    error_levels = {
+        "L": qrcode.constants.ERROR_CORRECT_L,
+        "M": qrcode.constants.ERROR_CORRECT_M,
+        "Q": qrcode.constants.ERROR_CORRECT_Q,
+        "H": qrcode.constants.ERROR_CORRECT_H,
+    }
 
-print("SVG QR code saved to image.svg")
+    front = parse_color(args.front_color)
+    back = parse_color(args.back_color)
+
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
+
+    for i, data in enumerate(args.data):
+        qr = QRCode(
+            error_correction=error_levels[args.error_correction], box_size=args.box_size
+        )
+        qr.add_data(data)
+
+        # Create a safe filename
+        safe_data = re.sub(r"[^a-zA-Z0-9]+", "_", data[:20])
+        filename = os.path.join(args.output_dir, f"qr_{i:03d}_{safe_data}.svg")
+
+        img = qr.make_image(
+            image_factory=StyledSvgImage,
+            module_drawer=SvgHorizontalBarsDrawer(),
+            eye_drawer=SvgCustomEyeDrawer(),
+            color_mask=SolidFillColorMask(front_color=front, back_color=back),
+        )
+
+        with open(filename, "wb") as f:
+            img.save(f)
+        print(f"Saved QR code for '{data}' to {filename}")
+
+
+if __name__ == "__main__":
+    main()
