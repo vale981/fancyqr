@@ -21,18 +21,24 @@ async def generate(
     fc: str = Query("#ff9232", description="Foreground color"),
     bc: str = Query("255,255,255,0", description="Background color"),
     size: int = Query(100, ge=10, le=500, description="Box size"),
-    ec: str = Query("L", regex="^[LMQH]$")
+    ec: str = Query("L", regex="^[LMQH]$"),
+    logo: bool = Query(False, description="Include logo"),
+    ls: float = Query(0.8, ge=0.1, le=1.0, description="Logo scale"),
+    lm: float = Query(0.25, ge=0.1, le=0.5, description="Logo margin"),
 ):
     try:
         front = parse_color(fc)
         back = parse_color(bc)
-        
+
         svg_content = generate_qr_svg(
             data=data,
             front_color=front,
             back_color=back,
             box_size=size,
-            error_correction=ERROR_LEVELS[ec]
+            error_correction=ERROR_LEVELS[ec],
+            with_logo=logo,
+            logo_scale=ls,
+            logo_margin=lm,
         )
         
         return Response(content=svg_content, media_type="image/svg+xml")

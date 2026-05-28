@@ -1,5 +1,7 @@
 import abc
 import io
+import os
+import re
 from typing import TYPE_CHECKING, Any, Union, Optional
 from decimal import Decimal
 
@@ -265,12 +267,16 @@ class SvgHorizontalBarsDrawer(QRModuleDrawer):
 
 
 class StyledSvgImage(qrcode.image.svg.SvgImage):
-    """Styled SVG image factory that supports custom drawers and color masks."""
+    """Styled SVG image factory that supports custom drawers, color masks, and logo embedding."""
 
     needs_processing = True
 
     def __init__(self, *args, **kwargs):
         color_mask = kwargs.pop("color_mask", None)
+        self.logo_data = kwargs.pop("logo_data", None)
+        self.logo_box = kwargs.pop("logo_box", None)
+        self.logo_scale = kwargs.pop("logo_scale", Decimal("0.8"))
+
         if color_mask:
             self.front_color = getattr(color_mask, "front_color", "black")
             self.background = color_to_svg(getattr(color_mask, "back_color", "white"))
@@ -286,10 +292,7 @@ class StyledSvgImage(qrcode.image.svg.SvgImage):
             self.module_drawer.initialize(self)
 
     def _svg(self, tag="svg", **kwargs):
-        # Override to ensure we use the namespaced tag and add viewBox
-        if tag == "svg":
-            tag = "{http://www.w3.org/2000/svg}svg"
-
+        # Override to ensure we use the local tag and add viewBox
         svg = super()._svg(tag=tag, **kwargs)
         viewbox_size = self.units(self.pixel_size, text=False)
         svg.set("viewBox", f"0 0 {viewbox_size} {viewbox_size}")
@@ -315,6 +318,64 @@ class StyledSvgImage(qrcode.image.svg.SvgImage):
         if self.eye_drawer and getattr(self.eye_drawer, "needs_processing", False):
             self.eye_drawer.draw()
 
+        if self.logo_data and self.logo_box:
+            self._embed_logo()
+
+    def _embed_logo(self):
+        """Embed the logo SVG into the center box."""
+        try:
+            logo_tree = ET.fromstring(self.logo_data)
+
+            # Get logo dimensions from its viewBox or width/height
+            l_vb = logo_tree.get("viewBox")
+            if l_vb:
+                _, _, l_w, l_h = map(float, l_vb.split())
+            else:
+                l_w = float(
+                    logo_tree.get("width", "1").replace("mm", "").replace("px", "")
+                )
+                l_h = float(
+                    logo_tree.get("height", "1").replace("mm", "").replace("px", "")
+                )
+
+            # Target box in units
+            (x0, y0), (x1, y1) = self.logo_box
+            ux0 = self.units(x0, text=False)
+            uy0 = self.units(y0, text=False)
+            ux1 = self.units(x1 + 1, text=False)
+            uy1 = self.units(y1 + 1, text=False)
+            target_w = ux1 - ux0
+            target_h = uy1 - uy0
+
+            # Calculate scale and translation
+            scale_x = target_w / Decimal(str(l_w))
+            scale_y = target_h / Decimal(str(l_h))
+            # Use configurable scale
+            scale = min(scale_x, scale_y) * self.logo_scale
+
+            # Center the logo in the target box
+            off_x = ux0 + (target_w - Decimal(str(l_w)) * scale) / 2
+            off_y = uy0 + (target_h - Decimal(str(l_h)) * scale) / 2
+
+            # Create a group for the logo with transform
+            g = ET.Element("{http://www.w3.org/2000/svg}g")
+            g.set("transform", f"translate({off_x}, {off_y}) scale({scale})")
+
+            # Filter and append only relevant graphic elements
+            skip_tags = {"namedview", "metadata", "defs"}
+            for child in logo_tree:
+                tag_name = (
+                    child.tag.split("}")[-1] if "}" in child.tag else child.tag
+                )
+                if tag_name not in skip_tags:
+                    # Strip namespace from children too to keep it clean
+                    child.tag = ET.QName("http://www.w3.org/2000/svg", tag_name)
+                    g.append(child)
+
+            self._img.append(g)
+        except Exception as e:
+            print(f"Warning: Could not embed logo: {e}")
+
 
 def generate_qr_svg(
     data: str,
@@ -322,16 +383,53 @@ def generate_qr_svg(
     back_color: tuple[int, int, int, int] = (255, 255, 255, 0),
     box_size: int = 100,
     error_correction: int = qrcode.constants.ERROR_CORRECT_L,
+    with_logo: bool = False,
+    logo_scale: float = 0.8,
+    logo_margin: float = 0.25,
 ) -> str:
     """Generate a styled SVG QR code and return it as a string."""
+
     qr = qrcode.QRCode(error_correction=error_correction, box_size=box_size)
     qr.add_data(data)
+    qr.make()
+
+    logo_data = None
+    logo_box = None
+
+    if with_logo and os.path.exists("logo.svg"):
+        with open("logo.svg", "r") as f:
+            logo_data = f.read()
+
+        # Calculate center area to clear based on logo_margin
+        mc = qr.modules_count
+        size = int(mc * logo_margin)
+        if size % 2 == 0:
+            size += 1  # Ensure odd size for perfect centering
+
+        start = (mc - size) // 2
+        end = start + size
+
+        for r in range(start, end):
+            for c in range(start, end):
+                qr.modules[r][c] = False
+
+        # Define the logo box in pixels for the drawer
+        logo_box = (
+            ((start + qr.border) * qr.box_size, (start + qr.border) * qr.box_size),
+            (
+                (end + qr.border) * qr.box_size - 1,
+                (end + qr.border) * qr.box_size - 1,
+            ),
+        )
 
     img = qr.make_image(
         image_factory=StyledSvgImage,
         module_drawer=SvgHorizontalBarsDrawer(),
         eye_drawer=SvgCustomEyeDrawer(),
         color_mask=SolidFillColorMask(front_color=front_color, back_color=back_color),
+        logo_data=logo_data,
+        logo_box=logo_box,
+        logo_scale=Decimal(str(logo_scale)),
     )
 
     output = io.BytesIO()
