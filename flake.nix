@@ -40,6 +40,11 @@
               default = "0.0.0.0";
               description = "Host to bind to.";
             };
+            socket = lib.mkOption {
+              type = lib.types.nullOr lib.types.path;
+              default = null;
+              description = "Path to a Unix socket to listen on. If set, host and port are ignored.";
+            };
             user = lib.mkOption {
               type = lib.types.str;
               default = "fancyqr";
@@ -75,18 +80,20 @@
                 User = cfg.user;
                 Group = cfg.group;
                 WorkingDirectory = cfg.dataDir;
+                # If using a socket, ensure the runtime directory exists
+                RuntimeDirectory = if cfg.socket != null then "fancyqr" else null;
                 ExecStartPre = pkgs.writeShellScript "fancyqr-setup" ''
                   # Copy the app files and pixi.toml to the data directory if they don't exist
-                  # This ensures pixi can run and find the source code
                   mkdir -p ${cfg.dataDir}
                   cp -rn ${self}/* ${cfg.dataDir}/
                   chmod -R u+w ${cfg.dataDir}/
                 '';
-                ExecStart = "${pkgs.pixi}/bin/pixi run --manifest-path ${cfg.dataDir}/pixi.toml uvicorn app:app --host ${cfg.host} --port ${toString cfg.port}";
+                ExecStart = let
+                  listenArgs = if cfg.socket != null 
+                    then "--uds ${cfg.socket}" 
+                    else "--host ${cfg.host} --port ${toString cfg.port}";
+                in "${pkgs.pixi}/bin/pixi run --manifest-path ${cfg.dataDir}/pixi.toml uvicorn app:app ${listenArgs}";
                 Restart = "always";
-                # Pixi needs internet access to install dependencies on first run
-                # Or we assume the user has pre-installed them. 
-                # On NixOS, we might want to pre-populate the environment.
               };
             };
           };

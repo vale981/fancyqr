@@ -15,6 +15,7 @@ ERROR_LEVELS = {
     "H": qrcode.constants.ERROR_CORRECT_H,
 }
 
+
 @app.get("/generate")
 async def generate(
     data: str = Query(..., description="Data to encode"),
@@ -23,8 +24,8 @@ async def generate(
     size: int = Query(100, ge=10, le=500, description="Box size"),
     ec: str = Query("L", regex="^[LMQH]$"),
     logo: bool = Query(False, description="Include logo"),
-    ls: float = Query(0.8, ge=0.1, le=1.0, description="Logo scale"),
-    lm: float = Query(0.25, ge=0.1, le=0.5, description="Logo margin"),
+    ls: float = Query(0.9, ge=0.1, le=1.0, description="Logo scale"),
+    lm: float = Query(0.2, ge=0.1, le=0.5, description="Logo margin"),
 ):
     try:
         front = parse_color(fc)
@@ -40,14 +41,16 @@ async def generate(
             logo_scale=ls,
             logo_margin=lm,
         )
-        
+
         return Response(content=svg_content, media_type="image/svg+xml")
     except Exception as e:
         return Response(content=f"Error: {str(e)}", status_code=400)
 
+
 @app.get("/")
 async def index():
     return FileResponse("static/index.html")
+
 
 # Create static directory if it doesn't exist for the frontend
 if not os.path.exists("static"):

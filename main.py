@@ -47,13 +47,13 @@ def main():
     parser.add_argument(
         "--logo-scale",
         type=float,
-        default=0.8,
+        default=0.9,
         help="Scale factor for the logo (default: 0.8).",
     )
     parser.add_argument(
         "--logo-margin",
         type=float,
-        default=0.25,
+        default=0.2,
         help="Percentage of QR modules to clear for logo (default: 0.25).",
     )
 
