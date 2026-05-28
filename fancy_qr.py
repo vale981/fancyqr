@@ -396,9 +396,15 @@ def generate_qr_svg(
     logo_data = None
     logo_box = None
 
-    if with_logo and os.path.exists("logo.svg"):
-        with open("logo.svg", "r") as f:
-            logo_data = f.read()
+    if with_logo:
+        logo_path = "logo.svg"
+        if not os.path.exists(logo_path):
+            # Try relative to the script
+            logo_path = os.path.join(os.path.dirname(__file__), "logo.svg")
+            
+        if os.path.exists(logo_path):
+            with open(logo_path, "r") as f:
+                logo_data = f.read()
 
         # Calculate center area to clear based on logo_margin
         mc = qr.modules_count

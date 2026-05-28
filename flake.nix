@@ -4,23 +4,64 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+
+    pyproject-nix = {
+      url = "github:pyproject-nix/pyproject.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    uv2nix = {
+      url = "github:pyproject-nix/uv2nix";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    pyproject-build-systems = {
+      url = "github:pyproject-nix/build-system-pkgs";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.uv2nix.follows = "uv2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, ... }:
+  outputs = { self, nixpkgs, flake-utils, uv2nix, pyproject-nix, pyproject-build-systems, ... }:
+    let
+      inherit (nixpkgs) lib;
+    in
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-      in
-      {
-        devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            pixi
-          ];
+
+        # 1. Load the uv workspace
+        workspace = uv2nix.lib.workspace.loadWorkspace {
+          workspaceRoot = ./.;
         };
 
-        packages.default = pkgs.writeShellScriptBin "fancyqr-web" ''
-          exec ${pkgs.pixi}/bin/pixi run --manifest-path ${self}/pixi.toml web
-        '';
+        # 2. Create the Python package set with overlays
+        python = pkgs.python313;
+        pythonSet = (pkgs.callPackage pyproject-nix.build.packages {
+          inherit python;
+        }).overrideScope (
+          lib.composeManyExtensions [
+            pyproject-build-systems.overlays.default
+            (workspace.mkPyprojectOverlay {
+              sourcePreference = "wheel";
+            })
+          ]
+        );
+
+        # 3. Build the virtual environment (the "package")
+        # This includes our local project (fancyqr) because it's in the workspace
+        fancyqr-env = pythonSet.mkVirtualEnv "fancyqr-env" workspace.deps.default;
+
+      in
+      {
+        packages.default = fancyqr-env;
+
+        devShells.default = pkgs.mkShell {
+          packages = [
+            pkgs.uv
+            fancyqr-env
+          ];
+        };
       }
     ) // {
       nixosModules.default = { config, lib, pkgs, ... }:
@@ -30,6 +71,11 @@
         {
           options.services.fancyqr = {
             enable = lib.mkEnableOption "FancyQR service";
+            package = lib.mkOption {
+              type = lib.types.package;
+              default = self.packages.${pkgs.system}.default;
+              description = "The package to use for the service.";
+            };
             port = lib.mkOption {
               type = lib.types.port;
               default = 8000;
@@ -58,7 +104,7 @@
             dataDir = lib.mkOption {
               type = lib.types.path;
               default = "/var/lib/fancyqr";
-              description = "Directory to store app files (including logo.svg).";
+              description = "Directory to store app files (like logo.svg).";
             };
           };
 
@@ -80,19 +126,16 @@
                 User = cfg.user;
                 Group = cfg.group;
                 WorkingDirectory = cfg.dataDir;
-                # If using a socket, ensure the runtime directory exists
+                # RuntimeDirectory manages /run/fancyqr automatically
                 RuntimeDirectory = if cfg.socket != null then "fancyqr" else null;
-                ExecStartPre = pkgs.writeShellScript "fancyqr-setup" ''
-                  # Copy the app files and pixi.toml to the data directory if they don't exist
-                  mkdir -p ${cfg.dataDir}
-                  cp -rn ${self}/* ${cfg.dataDir}/
-                  chmod -R u+w ${cfg.dataDir}/
-                '';
+                
+                # ExecStart uses the binary from the uv2nix virtualenv
                 ExecStart = let
                   listenArgs = if cfg.socket != null 
                     then "--uds ${cfg.socket}" 
                     else "--host ${cfg.host} --port ${toString cfg.port}";
-                in "${pkgs.pixi}/bin/pixi run --manifest-path ${cfg.dataDir}/pixi.toml uvicorn app:app ${listenArgs}";
+                in "${cfg.package}/bin/fancyqr-web ${listenArgs}";
+                
                 Restart = "always";
               };
             };

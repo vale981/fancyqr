@@ -49,9 +49,33 @@ async def generate(
 
 @app.get("/")
 async def index():
-    return FileResponse("static/index.html")
+    path = "static/index.html"
+    if not os.path.exists(path):
+        path = os.path.join(os.path.dirname(__file__), "static", "index.html")
+    return FileResponse(path)
 
 
 # Create static directory if it doesn't exist for the frontend
 if not os.path.exists("static"):
-    os.makedirs("static")
+    # Only try to create if we're not in a read-only environment like Nix
+    try:
+        os.makedirs("static", exist_ok=True)
+    except OSError:
+        pass
+
+
+def main():
+    import uvicorn
+    import argparse
+
+    parser = argparse.ArgumentParser(description="FancyQR Web Server")
+    parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
+    parser.add_argument("--port", type=int, default=8000, help="Port to listen on")
+    parser.add_argument("--uds", default=None, help="Unix domain socket to bind to")
+    args = parser.parse_args()
+
+    uvicorn.run(app, host=args.host, port=args.port, uds=args.uds)
+
+
+if __name__ == "__main__":
+    main()
