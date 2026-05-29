@@ -86,14 +86,30 @@ async def index():
 
 
 @app.get("/{slug}")
-async def redirect(slug: str):
+async def redirect(slug: str, request: Request):
     url = await db.get_url(slug)
     if url:
+        # Record the visit asynchronously
+        await db.record_visit(
+            slug, 
+            user_agent=request.headers.get("user-agent"),
+            referer=request.headers.get("referer")
+        )
         return RedirectResponse(url)
-    # If not a slug, might be a static file or 404
-    # But since we have other routes above, they take precedence.
-    # We could also check if it's a file in static/
     raise HTTPException(status_code=404, detail="Not found")
+
+
+@app.get("/stats/{slug}")
+async def get_stats(slug: str, password: str = Query(None)):
+    # Optional password protection for stats too
+    required_password = os.environ.get("FANCYQR_PASSWORD")
+    if required_password and password != required_password:
+        raise HTTPException(status_code=401, detail="Unauthorized: Invalid password")
+
+    stats = await db.get_stats(slug)
+    if not stats:
+        raise HTTPException(status_code=404, detail="Slug not found")
+    return stats
 
 
 # Create static directory if it doesn't exist for the frontend
