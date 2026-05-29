@@ -132,7 +132,7 @@
                 Group = cfg.group;
                 WorkingDirectory = cfg.dataDir;
                 # RuntimeDirectory manages /run/fancyqr automatically
-                RuntimeDirectory = if cfg.socket != null then "fancyqr" else null;
+                RuntimeDirectory = "fancyqr";
 
                 Environment = [
                   "FANCYQR_DB_PATH=${cfg.dataDir}/links.db"
@@ -142,12 +142,12 @@
                 ExecStartPre = lib.optional (cfg.passwordFile != null) (
                   pkgs.writeShellScript "fancyqr-setup" ''
                     if [ -f "${cfg.passwordFile}" ]; then
-                      echo "FANCYQR_PASSWORD=$(cat "${cfg.passwordFile}")" > /run/fancyqr/env
+                      echo "FANCYQR_PASSWORD=$(${pkgs.coreutils}/bin/cat "${cfg.passwordFile}")" > /run/fancyqr/env
                     fi
                   ''
                 );
 
-                EnvironmentFile = lib.optional (cfg.passwordFile != null) "/run/fancyqr/env";
+                EnvironmentFile = lib.optional (cfg.passwordFile != null) "-/run/fancyqr/env";
                 
                 # ExecStart uses the binary from the uv2nix virtualenv
                 ExecStart = let
