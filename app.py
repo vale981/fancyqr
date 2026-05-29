@@ -11,6 +11,7 @@ import db
 class ShortenRequest(BaseModel):
     url: str
     slug: str = Field(None, min_length=1, max_length=50)
+    password: str = Field(None)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -62,6 +63,11 @@ async def generate(
 
 @app.post("/shorten")
 async def shorten(request: ShortenRequest):
+    # Basic password protection
+    required_password = os.environ.get("FANCYQR_PASSWORD")
+    if required_password and request.password != required_password:
+        raise HTTPException(status_code=401, detail="Unauthorized: Invalid password")
+
     try:
         slug = await db.create_link(request.url, request.slug)
         return {"slug": slug, "url": request.url}

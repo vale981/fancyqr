@@ -106,6 +106,11 @@
               default = "/var/lib/fancyqr";
               description = "Directory to store app files (like logo.svg).";
             };
+            passwordFile = lib.mkOption {
+              type = lib.types.nullOr lib.types.path;
+              default = null;
+              description = "Path to a file containing the password for link shortening.";
+            };
           };
 
           config = lib.mkIf cfg.enable {
@@ -128,6 +133,21 @@
                 WorkingDirectory = cfg.dataDir;
                 # RuntimeDirectory manages /run/fancyqr automatically
                 RuntimeDirectory = if cfg.socket != null then "fancyqr" else null;
+
+                Environment = [
+                  "FANCYQR_DB_PATH=${cfg.dataDir}/links.db"
+                ];
+
+                # Load password from file if provided
+                ExecStartPre = lib.optional (cfg.passwordFile != null) (
+                  pkgs.writeShellScript "fancyqr-setup" ''
+                    if [ -f "${cfg.passwordFile}" ]; then
+                      echo "FANCYQR_PASSWORD=$(cat "${cfg.passwordFile}")" > /run/fancyqr/env
+                    fi
+                  ''
+                );
+
+                EnvironmentFile = lib.optional (cfg.passwordFile != null) "/run/fancyqr/env";
                 
                 # ExecStart uses the binary from the uv2nix virtualenv
                 ExecStart = let

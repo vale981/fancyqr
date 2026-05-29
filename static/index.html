@@ -146,6 +146,7 @@
                 <label for="data">Text or URL</label>
                 <div style="display: flex; gap: 0.5rem;">
                     <input type="text" id="data" placeholder="Enter text here..." value="https://google.com" style="flex: 1;">
+                    <input type="password" id="password" placeholder="Pass" style="width: 80px;">
                     <button class="btn btn-primary" id="shorten-btn" style="padding: 0 1rem; width: auto; font-size: 0.8rem;">Shorten</button>
                 </div>
                 <small id="short-url-display" style="color: var(--primary); display: none; margin-top: 0.2rem;"></small>
@@ -202,6 +203,7 @@
 
     <script>
         const dataInput = document.getElementById('data');
+        const passwordInput = document.getElementById('password');
         const shortenBtn = document.getElementById('shorten-btn');
         const shortUrlDisplay = document.getElementById('short-url-display');
         const frontColorInput = document.getElementById('front-color');
@@ -258,7 +260,10 @@
                 const response = await fetch('/shorten', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url })
+                    body: JSON.stringify({ 
+                        url, 
+                        password: passwordInput.value 
+                    })
                 });
 
                 if (response.ok) {
