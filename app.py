@@ -64,6 +64,9 @@ async def generate(
 async def shorten(request: ShortenRequest, x_fancyqr_password: str = Header(None, alias="X-FancyQR-Password")):
     # Basic password protection
     required_password = os.environ.get("FANCYQR_PASSWORD")
+    if required_password:
+        required_password = required_password.strip()
+
     if required_password and x_fancyqr_password != required_password:
         raise HTTPException(status_code=401, detail="Unauthorized: Invalid password")
 
@@ -79,6 +82,9 @@ async def shorten(request: ShortenRequest, x_fancyqr_password: str = Header(None
 @app.get("/links")
 async def list_links(x_fancyqr_password: str = Header(None, alias="X-FancyQR-Password")):
     required_password = os.environ.get("FANCYQR_PASSWORD")
+    if required_password:
+        required_password = required_password.strip()
+
     if required_password and x_fancyqr_password != required_password:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return await db.list_links()
@@ -91,6 +97,9 @@ class UpdateLinkRequest(BaseModel):
 @app.patch("/links/{slug}")
 async def update_link(slug: str, request: UpdateLinkRequest, x_fancyqr_password: str = Header(None, alias="X-FancyQR-Password")):
     required_password = os.environ.get("FANCYQR_PASSWORD")
+    if required_password:
+        required_password = required_password.strip()
+
     if required_password and x_fancyqr_password != required_password:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
@@ -101,6 +110,9 @@ async def update_link(slug: str, request: UpdateLinkRequest, x_fancyqr_password:
 @app.delete("/links/{slug}")
 async def delete_link(slug: str, x_fancyqr_password: str = Header(None, alias="X-FancyQR-Password")):
     required_password = os.environ.get("FANCYQR_PASSWORD")
+    if required_password:
+        required_password = required_password.strip()
+
     if required_password and x_fancyqr_password != required_password:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
@@ -142,6 +154,9 @@ async def redirect(slug: str, request: Request):
 async def get_stats_api(slug: str, x_fancyqr_password: str = Header(None, alias="X-FancyQR-Password")):
     # Optional password protection for stats too
     required_password = os.environ.get("FANCYQR_PASSWORD")
+    if required_password:
+        required_password = required_password.strip()
+
     if required_password and x_fancyqr_password != required_password:
         raise HTTPException(status_code=401, detail="Unauthorized: Invalid password")
 

@@ -142,7 +142,7 @@
                 ExecStartPre = lib.optional (cfg.passwordFile != null) (
                   pkgs.writeShellScript "fancyqr-setup" ''
                     if [ -f "${cfg.passwordFile}" ]; then
-                      echo "FANCYQR_PASSWORD=$(${pkgs.coreutils}/bin/cat "${cfg.passwordFile}")" > /run/fancyqr/env
+                      echo "FANCYQR_PASSWORD=$(${pkgs.coreutils}/bin/cat "${cfg.passwordFile}" | ${pkgs.coreutils}/bin/tr -d '\n')" > /run/fancyqr/env
                     fi
                   ''
                 );

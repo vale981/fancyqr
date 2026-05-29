@@ -31,6 +31,23 @@ The service is configured using environment variables:
 
 Access the dashboard at `/dashboard` to view link statistics, update destination URLs, and manage your shortened links. Authentication requires the `FANCYQR_PASSWORD` to be set.
 
+## Reverse Proxy (Nginx)
+
+When running behind a reverse proxy like Nginx, ensure that the `X-FancyQR-Password` header is passed through to the application.
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # Ensure custom auth header is passed
+    proxy_set_header X-FancyQR-Password $http_x_fancyqr_password;
+}
+```
+
 ## NixOS Deployment
 
 A Nix flake is provided, including a NixOS module for systemd service management.
