@@ -144,7 +144,11 @@
         <div class="controls">
             <div class="control-group">
                 <label for="data">Text or URL</label>
-                <input type="text" id="data" placeholder="Enter text here..." value="Hello World">
+                <div style="display: flex; gap: 0.5rem;">
+                    <input type="text" id="data" placeholder="Enter text here..." value="https://google.com" style="flex: 1;">
+                    <button class="btn btn-primary" id="shorten-btn" style="padding: 0 1rem; width: auto; font-size: 0.8rem;">Shorten</button>
+                </div>
+                <small id="short-url-display" style="color: var(--primary); display: none; margin-top: 0.2rem;"></small>
             </div>
 
             <div class="control-group">
@@ -198,6 +202,8 @@
 
     <script>
         const dataInput = document.getElementById('data');
+        const shortenBtn = document.getElementById('shorten-btn');
+        const shortUrlDisplay = document.getElementById('short-url-display');
         const frontColorInput = document.getElementById('front-color');
         const backColorInput = document.getElementById('back-color');
         const ecInput = document.getElementById('error-correction');
@@ -236,6 +242,42 @@
 
         [dataInput, frontColorInput, backColorInput, ecInput, logoInput, lsInput, lmInput].forEach(el => {
             el.addEventListener('input', debouncedUpdate);
+        });
+
+        shortenBtn.addEventListener('click', async () => {
+            const url = dataInput.value;
+            if (!url || !url.startsWith('http')) {
+                alert('Please enter a valid URL starting with http:// or https://');
+                return;
+            }
+
+            shortenBtn.disabled = true;
+            shortenBtn.textContent = '...';
+
+            try {
+                const response = await fetch('/shorten', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    const shortUrl = `${window.location.origin}/${result.slug}`;
+                    dataInput.value = shortUrl;
+                    shortUrlDisplay.textContent = `Shortened: ${shortUrl}`;
+                    shortUrlDisplay.style.display = 'block';
+                    updateQR();
+                } else {
+                    const err = await response.json();
+                    alert(`Error: ${err.detail || 'Failed to shorten URL'}`);
+                }
+            } catch (e) {
+                alert('Error connecting to server');
+            } finally {
+                shortenBtn.disabled = false;
+                shortenBtn.textContent = 'Shorten';
+            }
         });
 
         downloadBtn.addEventListener('click', () => {

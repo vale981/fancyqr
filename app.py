@@ -1,11 +1,24 @@
-from fastapi import FastAPI, Response, Query
+from fastapi import FastAPI, Response, Query, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 import os
+from contextlib import asynccontextmanager
+from pydantic import BaseModel, Field
 from fancy_qr import generate_qr_svg, parse_color
 import qrcode
+import db
 
-app = FastAPI(title="FancyQR Generator")
+class ShortenRequest(BaseModel):
+    url: str
+    slug: str = Field(None, min_length=1, max_length=50)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize database
+    await db.init_db()
+    yield
+
+app = FastAPI(title="FancyQR Generator", lifespan=lifespan)
 
 # Map error correction strings to constants
 ERROR_LEVELS = {
@@ -22,7 +35,7 @@ async def generate(
     fc: str = Query("#ff9232", description="Foreground color"),
     bc: str = Query("255,255,255,0", description="Background color"),
     size: int = Query(100, ge=10, le=500, description="Box size"),
-    ec: str = Query("L", regex="^[LMQH]$"),
+    ec: str = Query("L", pattern="^[LMQH]$"),
     logo: bool = Query(False, description="Include logo"),
     ls: float = Query(0.9, ge=0.1, le=1.0, description="Logo scale"),
     lm: float = Query(0.2, ge=0.1, le=0.5, description="Logo margin"),
@@ -47,12 +60,34 @@ async def generate(
         return Response(content=f"Error: {str(e)}", status_code=400)
 
 
+@app.post("/shorten")
+async def shorten(request: ShortenRequest):
+    try:
+        slug = await db.create_link(request.url, request.slug)
+        return {"slug": slug, "url": request.url}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/")
 async def index():
     path = "static/index.html"
     if not os.path.exists(path):
         path = os.path.join(os.path.dirname(__file__), "static", "index.html")
     return FileResponse(path)
+
+
+@app.get("/{slug}")
+async def redirect(slug: str):
+    url = await db.get_url(slug)
+    if url:
+        return RedirectResponse(url)
+    # If not a slug, might be a static file or 404
+    # But since we have other routes above, they take precedence.
+    # We could also check if it's a file in static/
+    raise HTTPException(status_code=404, detail="Not found")
 
 
 # Create static directory if it doesn't exist for the frontend
