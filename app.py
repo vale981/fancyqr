@@ -140,8 +140,8 @@ async def redirect(slug: str, request: Request):
     raise HTTPException(status_code=404, detail="Not found")
 
 
-@app.get("/stats/{slug}")
-async def get_stats(slug: str, password: str = Query(None)):
+@app.get("/api/stats/{slug}")
+async def get_stats_api(slug: str, password: str = Query(None)):
     # Optional password protection for stats too
     required_password = os.environ.get("FANCYQR_PASSWORD")
     if required_password and password != required_password:
@@ -151,6 +151,14 @@ async def get_stats(slug: str, password: str = Query(None)):
     if not stats:
         raise HTTPException(status_code=404, detail="Slug not found")
     return stats
+
+
+@app.get("/stats/{slug}")
+async def get_stats_page(slug: str):
+    path = "static/stats.html"
+    if not os.path.exists(path):
+        path = os.path.join(os.path.dirname(__file__), "static", "stats.html")
+    return FileResponse(path)
 
 
 # Create static directory if it doesn't exist for the frontend

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link Statistics</title>
+    <style>
+        :root {
+            --primary: #ff9232;
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --text: #2d3436;
+            --border: #dfe6e9;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 { color: var(--primary); margin: 0; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #636e72;
+            font-weight: 600;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 2rem;
+        }
+
+        .card-title {
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: #636e72;
+            font-size: 1.1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th { font-weight: 600; color: #636e72; }
+        td { font-size: 0.9rem; }
+
+        .url-box {
+            background: #f0f2f5;
+            padding: 0.8rem;
+            border-radius: 0.5rem;
+            word-break: break-all;
+            font-family: monospace;
+            margin-top: 0.5rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.4rem;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: opacity 0.2s;
+        }
+
+        .btn-outline { background-color: transparent; border: 1px solid var(--border); color: #636e72; }
+        .btn:hover { opacity: 0.8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 id="page-title">Link Stats</h1>
+            <a href="/dashboard" class="btn btn-outline">Dashboard</a>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="total-clicks">-</div>
+                <div class="stat-label">Total Clicks</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="created-date" style="font-size: 1.2rem; padding-top: 0.5rem;">-</div>
+                <div class="stat-label">Created At</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Destination</div>
+            <div class="url-box" id="dest-url">-</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Recent Visits</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>User Agent</th>
+                    </tr>
+                </thead>
+                <tbody id="visits-table">
+                    <!-- Visits populated here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const slug = window.location.pathname.split('/').pop();
+        const urlParams = new URLSearchParams(window.location.search);
+        const password = urlParams.get('password');
+
+        async function loadStats() {
+            try {
+                const apiURL = `/api/stats/${slug}${password ? '?password=' + password : ''}`;
+                const resp = await fetch(apiURL);
+                if (!resp.ok) {
+                    if (resp.status === 401) {
+                        const pass = prompt('This link is password protected. Enter password:');
+                        if (pass) {
+                            window.location.search = `?password=${encodeURIComponent(pass)}`;
+                        }
+                    } else {
+                        document.body.innerHTML = '<div class="container"><h1>404 - Link Not Found</h1></div>';
+                    }
+                    return;
+                }
+                
+                const stats = await resp.json();
+                renderStats(stats);
+            } catch (e) {
+                console.error(e);
+                alert('Connection error');
+            }
+        }
+
+        function renderStats(stats) {
+            document.title = `Stats for /${slug}`;
+            document.getElementById('page-title').textContent = `/${slug} Statistics`;
+            document.getElementById('total-clicks').textContent = stats.clicks;
+            document.getElementById('created-date').textContent = new Date(stats.created_at).toLocaleDateString();
+            document.getElementById('dest-url').textContent = stats.url;
+
+            const table = document.getElementById('visits-table');
+            table.innerHTML = '';
+            stats.recent_visits.forEach(v => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="white-space: nowrap;">${new Date(v.timestamp).toLocaleString()}</td>
+                    <td style="color: #636e72; font-size: 0.8rem;">${v.user_agent || 'Unknown'}</td>
+                `;
+                table.appendChild(tr);
+            });
+        }
+
+        loadStats();
+    </script>
+</body>
+</html>
