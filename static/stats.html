@@ -157,18 +157,23 @@
 
     <script>
         const slug = window.location.pathname.split('/').pop();
-        const urlParams = new URLSearchParams(window.location.search);
-        const password = urlParams.get('password');
+        // Read password from URL hash to keep it out of server logs
+        let password = window.location.hash ? decodeURIComponent(window.location.hash.substring(1)) : null;
 
         async function loadStats() {
             try {
-                const apiURL = `/api/stats/${slug}${password ? '?password=' + password : ''}`;
-                const resp = await fetch(apiURL);
+                const apiURL = `/api/stats/${slug}`;
+                const resp = await fetch(apiURL, {
+                    headers: { 'X-FancyQR-Password': password || '' }
+                });
+                
                 if (!resp.ok) {
                     if (resp.status === 401) {
                         const pass = prompt('This link is password protected. Enter password:');
                         if (pass) {
-                            window.location.search = `?password=${encodeURIComponent(pass)}`;
+                            password = pass;
+                            window.location.hash = encodeURIComponent(pass);
+                            loadStats(); // Retry
                         }
                     } else {
                         document.body.innerHTML = '<div class="container"><h1>404 - Link Not Found</h1></div>';

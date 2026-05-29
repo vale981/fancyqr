@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Response, Query, HTTPException, Request
+from fastapi import FastAPI, Response, Query, HTTPException, Request, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
 import os
@@ -11,7 +11,6 @@ import db
 class ShortenRequest(BaseModel):
     url: str
     slug: str = Field(None, min_length=1, max_length=50)
-    password: str = Field(None)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -62,10 +61,10 @@ async def generate(
 
 
 @app.post("/shorten")
-async def shorten(request: ShortenRequest):
+async def shorten(request: ShortenRequest, x_fancyqr_password: str = Header(None, alias="X-FancyQR-Password")):
     # Basic password protection
     required_password = os.environ.get("FANCYQR_PASSWORD")
-    if required_password and request.password != required_password:
+    if required_password and x_fancyqr_password != required_password:
         raise HTTPException(status_code=401, detail="Unauthorized: Invalid password")
 
     try:
@@ -78,22 +77,21 @@ async def shorten(request: ShortenRequest):
 
 
 @app.get("/links")
-async def list_links(password: str = Query(None)):
+async def list_links(x_fancyqr_password: str = Header(None, alias="X-FancyQR-Password")):
     required_password = os.environ.get("FANCYQR_PASSWORD")
-    if required_password and password != required_password:
+    if required_password and x_fancyqr_password != required_password:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return await db.list_links()
 
 
 class UpdateLinkRequest(BaseModel):
     url: str
-    password: str = Field(None)
 
 
 @app.patch("/links/{slug}")
-async def update_link(slug: str, request: UpdateLinkRequest):
+async def update_link(slug: str, request: UpdateLinkRequest, x_fancyqr_password: str = Header(None, alias="X-FancyQR-Password")):
     required_password = os.environ.get("FANCYQR_PASSWORD")
-    if required_password and request.password != required_password:
+    if required_password and x_fancyqr_password != required_password:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     await db.update_link(slug, request.url)
@@ -101,9 +99,9 @@ async def update_link(slug: str, request: UpdateLinkRequest):
 
 
 @app.delete("/links/{slug}")
-async def delete_link(slug: str, password: str = Query(None)):
+async def delete_link(slug: str, x_fancyqr_password: str = Header(None, alias="X-FancyQR-Password")):
     required_password = os.environ.get("FANCYQR_PASSWORD")
-    if required_password and password != required_password:
+    if required_password and x_fancyqr_password != required_password:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     await db.delete_link(slug)
@@ -141,10 +139,10 @@ async def redirect(slug: str, request: Request):
 
 
 @app.get("/api/stats/{slug}")
-async def get_stats_api(slug: str, password: str = Query(None)):
+async def get_stats_api(slug: str, x_fancyqr_password: str = Header(None, alias="X-FancyQR-Password")):
     # Optional password protection for stats too
     required_password = os.environ.get("FANCYQR_PASSWORD")
-    if required_password and password != required_password:
+    if required_password and x_fancyqr_password != required_password:
         raise HTTPException(status_code=401, detail="Unauthorized: Invalid password")
 
     stats = await db.get_stats(slug)

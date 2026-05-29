@@ -269,22 +269,27 @@
             try {
                 const response = await fetch('/shorten', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        url, 
-                        password: passwordInput.value 
-                    })
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-FancyQR-Password': passwordInput.value
+                    },
+                    body: JSON.stringify({ url })
                 });
 
                 if (response.ok) {
                     const result = await response.json();
                     const shortUrl = `${window.location.origin}/${result.slug}`;
-                    const statsUrl = `/stats/${result.slug}${passwordInput.value ? '?password=' + passwordInput.value : ''}`;
+                    const statsUrl = `/stats/${result.slug}`;
                     
                     dataInput.value = shortUrl;
                     shortUrlDisplay.textContent = shortUrl;
                     clickCount.textContent = 'Clicks: 0';
                     statsLink.href = statsUrl;
+                    // Store password for the stats link if needed (e.g., in session storage or as a param for the HTML page to pick up)
+                    // For simplicity, we'll let the stats page prompt if needed, or pass it via URL hash to keep it out of server logs
+                    if (passwordInput.value) {
+                        statsLink.href += `#${encodeURIComponent(passwordInput.value)}`;
+                    }
                     shortUrlInfo.style.display = 'block';
                     
                     updateQR();

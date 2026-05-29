@@ -142,16 +142,24 @@
         
         let currentPassword = '';
 
-        async function loadLinks() {
+        async function loadLinks(isInitial = false) {
             try {
-                const resp = await fetch(`/links?password=${currentPassword}`);
-                if (!resp.ok) throw new Error('Unauthorized');
+                const resp = await fetch('/links', {
+                    headers: { 'X-FancyQR-Password': currentPassword }
+                });
+                
+                if (resp.status === 401) {
+                    if (!isInitial) alert('Invalid password');
+                    return;
+                }
+                
+                if (!resp.ok) throw new Error('Connection error');
                 
                 const links = await resp.json();
                 loginOverlay.style.display = 'none';
                 renderLinks(links);
             } catch (e) {
-                alert('Invalid password or connection error');
+                if (!isInitial) alert('Connection error: ' + e.message);
             }
         }
 
@@ -180,8 +188,11 @@
             const newUrl = document.getElementById(`url-${slug}`).value;
             const resp = await fetch(`/links/${slug}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: newUrl, password: currentPassword })
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-FancyQR-Password': currentPassword
+                },
+                body: JSON.stringify({ url: newUrl })
             });
             if (resp.ok) alert('Link updated!');
             else alert('Failed to update');
@@ -189,13 +200,18 @@
 
         async function deleteLink(slug) {
             if (!confirm('Are you sure?')) return;
-            const resp = await fetch(`/links/${slug}?password=${currentPassword}`, { method: 'DELETE' });
+            const resp = await fetch(`/links/${slug}`, { 
+                method: 'DELETE',
+                headers: { 'X-FancyQR-Password': currentPassword }
+            });
             if (resp.ok) loadLinks();
             else alert('Failed to delete');
         }
 
         function viewStats(slug) {
-            window.open(`/stats/${slug}?password=${currentPassword}`, '_blank');
+            let url = `/stats/${slug}`;
+            if (currentPassword) url += `#${encodeURIComponent(currentPassword)}`;
+            window.open(url, '_blank');
         }
 
         loginBtn.addEventListener('click', () => {
@@ -209,6 +225,9 @@
                 loadLinks();
             }
         });
+
+        // Initial load check
+        loadLinks(true);
     </script>
 </body>
 </html>
