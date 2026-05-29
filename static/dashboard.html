@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FancyQR Dashboard</title>
+    <style>
+        :root {
+            --primary: #ff9232;
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --text: #2d3436;
+            --border: #dfe6e9;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 { color: var(--primary); margin: 0; }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 2rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th { font-weight: 600; color: #636e72; }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.4rem;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: opacity 0.2s;
+        }
+
+        .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.75rem; }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-danger { background-color: #ff7675; color: white; }
+        .btn-outline { background-color: transparent; border: 1px solid var(--border); color: #636e72; }
+        .btn:hover { opacity: 0.8; }
+
+        .actions { display: flex; gap: 0.5rem; }
+
+        input {
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 0.4rem;
+            width: 100%;
+        }
+
+        #login-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(245, 247, 250, 0.98);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .login-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 300px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="login-overlay">
+        <div class="login-card">
+            <h2>Admin Login</h2>
+            <input type="password" id="admin-password" placeholder="Enter password" style="margin-bottom: 1rem;">
+            <button class="btn btn-primary" id="login-btn" style="width: 100%;">Login</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>📊 Link Dashboard</h1>
+            <a href="/" class="btn btn-outline">Back to Generator</a>
+        </div>
+
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Slug</th>
+                        <th>Destination URL</th>
+                        <th>Clicks</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="links-table">
+                    <!-- Links populated here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const passwordInput = document.getElementById('admin-password');
+        const loginBtn = document.getElementById('login-btn');
+        const loginOverlay = document.getElementById('login-overlay');
+        const linksTable = document.getElementById('links-table');
+        
+        let currentPassword = '';
+
+        async function loadLinks() {
+            try {
+                const resp = await fetch(`/links?password=${currentPassword}`);
+                if (!resp.ok) throw new Error('Unauthorized');
+                
+                const links = await resp.json();
+                loginOverlay.style.display = 'none';
+                renderLinks(links);
+            } catch (e) {
+                alert('Invalid password or connection error');
+            }
+        }
+
+        function renderLinks(links) {
+            linksTable.innerHTML = '';
+            links.forEach(link => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><code>/${link.slug}</code></td>
+                    <td>
+                        <input type="text" value="${link.url}" id="url-${link.slug}" style="font-size: 0.85rem;">
+                    </td>
+                    <td>${link.clicks}</td>
+                    <td style="font-size: 0.75rem; color: #636e72;">${new Date(link.created_at).toLocaleDateString()}</td>
+                    <td class="actions">
+                        <button class="btn btn-sm btn-primary" onclick="updateLink('${link.slug}')">Save</button>
+                        <button class="btn btn-sm btn-outline" onclick="viewStats('${link.slug}')">Stats</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteLink('${link.slug}')">Delete</button>
+                    </td>
+                `;
+                linksTable.appendChild(tr);
+            });
+        }
+
+        async function updateLink(slug) {
+            const newUrl = document.getElementById(`url-${slug}`).value;
+            const resp = await fetch(`/links/${slug}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: newUrl, password: currentPassword })
+            });
+            if (resp.ok) alert('Link updated!');
+            else alert('Failed to update');
+        }
+
+        async function deleteLink(slug) {
+            if (!confirm('Are you sure?')) return;
+            const resp = await fetch(`/links/${slug}?password=${currentPassword}`, { method: 'DELETE' });
+            if (resp.ok) loadLinks();
+            else alert('Failed to delete');
+        }
+
+        function viewStats(slug) {
+            window.open(`/stats/${slug}?password=${currentPassword}`, '_blank');
+        }
+
+        loginBtn.addEventListener('click', () => {
+            currentPassword = passwordInput.value;
+            loadLinks();
+        });
+
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                currentPassword = passwordInput.value;
+                loadLinks();
+            }
+        });
+    </script>
+</body>
+</html>

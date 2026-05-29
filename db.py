@@ -93,3 +93,27 @@ async def get_url(slug: str):
         async with db.execute("SELECT url FROM links WHERE slug = ?", (slug,)) as cursor:
             row = await cursor.fetchone()
             return row[0] if row else None
+
+async def list_links():
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT slug, url, clicks, created_at FROM links ORDER BY created_at DESC"
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [
+                {"slug": r[0], "url": r[1], "clicks": r[2], "created_at": r[3]}
+                for r in rows
+            ]
+
+async def update_link(slug: str, new_url: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE links SET url = ? WHERE slug = ?", (new_url, slug)
+        )
+        await db.commit()
+
+async def delete_link(slug: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM visits WHERE slug = ?", (slug,))
+        await db.execute("DELETE FROM links WHERE slug = ?", (slug,))
+        await db.commit()

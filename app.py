@@ -77,6 +77,47 @@ async def shorten(request: ShortenRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/links")
+async def list_links(password: str = Query(None)):
+    required_password = os.environ.get("FANCYQR_PASSWORD")
+    if required_password and password != required_password:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return await db.list_links()
+
+
+class UpdateLinkRequest(BaseModel):
+    url: str
+    password: str = Field(None)
+
+
+@app.patch("/links/{slug}")
+async def update_link(slug: str, request: UpdateLinkRequest):
+    required_password = os.environ.get("FANCYQR_PASSWORD")
+    if required_password and request.password != required_password:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    await db.update_link(slug, request.url)
+    return {"status": "updated", "slug": slug, "url": request.url}
+
+
+@app.delete("/links/{slug}")
+async def delete_link(slug: str, password: str = Query(None)):
+    required_password = os.environ.get("FANCYQR_PASSWORD")
+    if required_password and password != required_password:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    await db.delete_link(slug)
+    return {"status": "deleted", "slug": slug}
+
+
+@app.get("/dashboard")
+async def dashboard():
+    path = "static/dashboard.html"
+    if not os.path.exists(path):
+        path = os.path.join(os.path.dirname(__file__), "static", "dashboard.html")
+    return FileResponse(path)
+
+
 @app.get("/")
 async def index():
     path = "static/index.html"
