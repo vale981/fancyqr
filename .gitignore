@@ -1,5 +1,36 @@
-# pixi environments
-.pixi/*
-!.pixi/config.toml
+# Node.js & npm Dependencies
+node_modules/
+package-lock.json
+
+# Cloudflare Workers & Wrangler
+.wrangler/
+.dev.vars
+
+# Build outputs
+dist/
+build/
+
+# Local databases & state files
 *.db
-/__pypcache__
+*.sqlite
+
+# Python leftovers (from previous implementation)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+.ipynb_checkpoints/
+
+# Pixi environment
+.pixi/
+
+# Logs and debug files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# System-specific files
+.DS_Store
+Thumbs.db

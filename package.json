@@ -1,0 +1,22 @@
+{
+  "name": "fancyqr-worker",
+  "version": "1.0.0",
+  "description": "Styled SVG QR Code Generator and Link Shortener running on Cloudflare Workers",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'Build step complete'",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "hono": "^4.7.2",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241112.0",
+    "@types/qrcode": "^1.5.5",
+    "typescript": "^5.6.3",
+    "wrangler": "^4.97.0"
+  }
+}

@@ -1,0 +1,13 @@
+name = "fancyqr"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+[[rules]]
+type = "Text"
+globs = ["**/*.svg", "**/*.html"]
+fallthrough = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "fancyqr-db"
+database_id = "your-d1-database-id"

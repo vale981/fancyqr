@@ -1,0 +1,15 @@
+CREATE TABLE IF NOT EXISTS links (
+    slug TEXT PRIMARY KEY,
+    url TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    clicks INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS visits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    user_agent TEXT,
+    referer TEXT,
+    FOREIGN KEY (slug) REFERENCES links (slug)
+);
