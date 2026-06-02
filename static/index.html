@@ -13,6 +13,17 @@
             --border: #dfe6e9;
         }
 
+        html, body {
+            box-sizing: border-box;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        *, *:before, *:after {
+            box-sizing: inherit;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg);
@@ -22,6 +33,7 @@
             align-items: center;
             min-height: 100vh;
             margin: 0;
+            padding: 1.5rem 1rem;
         }
 
         .card {
@@ -36,9 +48,62 @@
             gap: 2rem;
         }
 
+        .shorten-row {
+            display: flex;
+            gap: 0.5rem;
+            width: 100%;
+        }
+
+        .shorten-password {
+            width: 80px;
+        }
+
+        #shorten-btn {
+            padding: 0 1rem;
+            width: auto;
+            font-size: 0.8rem;
+        }
+
         @media (max-width: 600px) {
+            body {
+                padding: 0.75rem 0.5rem;
+            }
             .card {
                 grid-template-columns: 1fr;
+                padding: 1.25rem 1rem;
+                gap: 1.5rem;
+                border-radius: 0.75rem;
+                width: 100%;
+            }
+            .shorten-row {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            .shorten-password {
+                width: 100% !important;
+            }
+            #shorten-btn {
+                width: 100% !important;
+                padding: 0.7rem;
+                font-size: 0.95rem;
+            }
+            .controls {
+                gap: 1.2rem;
+            }
+            .preview-container {
+                min-height: 220px;
+                padding: 0.75rem;
+            }
+            input, select {
+                padding: 0.65rem 0.5rem;
+                font-size: 0.95rem;
+            }
+            .btn {
+                padding: 0.7rem;
+                font-size: 0.95rem;
+            }
+            h1 {
+                font-size: 1.3rem;
             }
         }
 
@@ -147,10 +212,10 @@
         <div class="controls">
             <div class="control-group">
                 <label for="data">Text or URL</label>
-                <div style="display: flex; gap: 0.5rem;">
-                    <input type="text" id="data" placeholder="Enter text here..." value="https://google.com" style="flex: 1;">
-                    <input type="password" id="password" placeholder="Pass" style="width: 80px;">
-                    <button class="btn btn-primary" id="shorten-btn" style="padding: 0 1rem; width: auto; font-size: 0.8rem;">Shorten</button>
+                <div class="shorten-row">
+                    <input type="text" id="data" placeholder="Enter text here..." value="https://google.com" style="flex: 1; min-width: 0;">
+                    <input type="password" id="password" placeholder="Pass" class="shorten-password">
+                    <button class="btn btn-primary" id="shorten-btn">Shorten</button>
                 </div>
                 <div id="short-url-info" style="display: none; margin-top: 0.5rem; font-size: 0.85rem; color: #636e72;">
                     <span id="short-url-display" style="color: var(--primary); font-weight: 600;"></span>

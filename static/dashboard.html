@@ -13,17 +13,63 @@
             --border: #dfe6e9;
         }
 
+        html, body {
+            box-sizing: border-box;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        *, *:before, *:after {
+            box-sizing: inherit;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
-            padding: 2rem;
+            padding: 2rem 1.5rem;
         }
 
         .container {
             max-width: 1000px;
             margin: 0 auto;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 1rem 0.5rem;
+            }
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+                margin-bottom: 1.5rem;
+            }
+            .card {
+                padding: 0.75rem !important;
+                border-radius: 0.75rem !important;
+            }
+            th, td {
+                padding: 0.5rem 0.35rem !important;
+                font-size: 0.8rem;
+            }
+            .btn {
+                padding: 0.4rem 0.65rem;
+                font-size: 0.8rem;
+            }
+            .btn-sm {
+                padding: 0.25rem 0.4rem;
+                font-size: 0.7rem;
+            }
+            input {
+                padding: 0.4rem 0.3rem;
+                font-size: 0.85rem;
+            }
+            h1 {
+                font-size: 1.4rem;
+            }
         }
 
         .header {
@@ -116,7 +162,7 @@
             <a href="/" class="btn btn-outline">Back to Generator</a>
         </div>
 
-        <div class="card">
+        <div class="card" style="overflow-x: auto;">
             <table>
                 <thead>
                     <tr>
