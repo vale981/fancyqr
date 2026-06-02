@@ -373,7 +373,17 @@
         downloadBtn.addEventListener('click', () => {
             const link = document.createElement('a');
             link.href = previewImg.src;
-            link.download = 'fancy_qr.svg';
+            
+            // Generate a safe, descriptive filename based on the input text/URL
+            const rawData = dataInput.value || "fancy_qr";
+            const safeData = rawData.trim()
+                .replace(/^https?:\/\//i, "") // Strip http:// or https:// for clean filenames
+                .replace(/[^a-zA-Z0-9]+/g, "_") // Replace non-alphanumeric with underscores
+                .substring(0, 30) // Cap length at 30 characters
+                .replace(/^_+|_+$/g, ""); // Remove trailing/leading underscores
+                
+            link.download = safeData ? `qr_${safeData}.svg` : 'fancy_qr.svg';
+            
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
